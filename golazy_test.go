@@ -1,4 +1,4 @@
-package golazy
+package lazyapp
 
 import (
 	"context"
@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"golazy.dev/lazyapp"
+	"golazy.dev/lazyassets"
+	"golazy.dev/lazyview"
 )
 
 func TestAppBuilder(t *testing.T) {
@@ -14,7 +18,7 @@ func TestAppBuilder(t *testing.T) {
 	defer cancel()
 
 	app := NewWithContext(ctx, "test", "1.0.0")
-	app.AddAsset("index.html", []byte("Hello, World!"))
+	app.LazyAssets.AddFile("index.html", []byte("Hello, World!"))
 
 	errCh := app.Start()
 
@@ -35,4 +39,25 @@ func TestAppBuilder(t *testing.T) {
 	if err := <-errCh; err != nil {
 		t.Errorf("Error: %v", err)
 	}
+}
+
+func TestAppHasContexts(t *testing.T) {
+	app := New("test", "1.0.0")
+
+	if value := lazyapp.AppGet[*lazyassets.Storage](app.LazyApp); value == nil {
+		t.Fatal("storage is nil")
+	}
+
+	if value := lazyapp.AppGet[*lazyassets.Server](app.LazyApp); value == nil {
+		t.Fatal("lazyassets.Server is nil")
+	}
+
+	if value := lazyapp.AppGet[*lazyapp.LazyApp](app.LazyApp); value == nil {
+		t.Fatal("*lazyapp.LazyApp is nil")
+	}
+
+	if value := lazyapp.AppGet[*lazyview.Views](app.LazyApp); value == nil {
+		t.Fatal("lazyview.Views is nil")
+	}
+
 }
