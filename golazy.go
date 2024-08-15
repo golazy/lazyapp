@@ -10,10 +10,11 @@ import (
 	"runtime"
 
 	"golazy.dev/layerfs"
-	"golazy.dev/lazyapp"
 	"golazy.dev/lazyassets"
+	"golazy.dev/lazycontext"
 	"golazy.dev/lazydispatch"
 	"golazy.dev/lazyhttp"
+	"golazy.dev/lazyservice"
 	"golazy.dev/lazyview"
 	"golazy.dev/lazyview/engines/raw"
 	"golazy.dev/lazyview/engines/tpl"
@@ -21,31 +22,38 @@ import (
 
 // GoLazyApp it's the glue of all golazy modules
 type GoLazyApp struct {
-	LazyApp      lazyapp.LazyApp
+	LazyService  lazyservice.Manager
 	LazyHTTP     lazyhttp.HTTPService
 	LazyAssets   lazyassets.Server
 	LazyView     lazyview.Views
 	LazyDispatch *lazydispatch.Dispatcher
 }
 
+var nameKey = "app.name"
+var versionKey = "app.version"
+
 // New creates a new GolazyApp instance
 // See [golazy.dev/lazyapp.New]
 func New(name, version string) *GoLazyApp {
+	s := lazyservice.New()
+	s.AddValue(nameKey, name).AddValue(versionKey, version)
 	return (&GoLazyApp{
-		LazyApp: lazyapp.New(name, version),
+		LazyService: s,
 	}).init()
 }
 
 // NewWithContext creates a new GolazyApp instance with the provided context.
 // See [golazy.dev/lazyapp.NewWithContext]
 func NewWithContext(ctx context.Context, name, version string) *GoLazyApp {
+	srv := lazyservice.NewWithContext(ctx)
+	srv.AddValue(nameKey, name).AddValue(versionKey, version)
 	return (&GoLazyApp{
-		LazyApp: lazyapp.NewWithContext(ctx, name, version),
+		LazyService: srv,
 	}).init()
 }
 
 func (b *GoLazyApp) init() *GoLazyApp {
-	lazyapp.AppSet(b.LazyApp, &b.LazyApp)
+	lazycontext.Set(b.LazyService, &b.LazyService)
 
 	// Views
 	b.LazyView.Engines = map[string]lazyview.Engine{
@@ -53,30 +61,30 @@ func (b *GoLazyApp) init() *GoLazyApp {
 		"txt": &raw.Engine{},
 	}
 	b.LazyView.FS = layerfs.New()
-	lazyapp.AppSet(b.LazyApp, &b.LazyView)
+	lazycontext.Set(b.LazyService, &b.LazyView)
 
 	// Dispatcher
 	b.LazyDispatch = lazydispatch.New()
-	lazyapp.AppSet(b.LazyApp, b.LazyDispatch)
+	lazycontext.Set(b.LazyService, b.LazyDispatch)
 
 	// Assets
 	b.LazyAssets.Storage = &lazyassets.Storage{}
 	b.LazyAssets.NextHandler = b.LazyDispatch
-	lazyapp.AppSet(b.LazyApp, &b.LazyAssets)
-	lazyapp.AppSet(b.LazyApp, b.LazyAssets.Storage)
+	lazycontext.Set(b.LazyService, &b.LazyAssets)
+	lazycontext.Set(b.LazyService, b.LazyAssets.Storage)
 
 	// Server
 	b.LazyHTTP.Addr = ":2000"
 	b.LazyHTTP.Handler = &b.LazyAssets
-	b.LazyApp.AddService(&b.LazyHTTP)
+	b.LazyService.AddService(&b.LazyHTTP)
 
 	return b
 }
 
 // AddService adds a service to the app
 // See [golazy.dev/lazyapp.AddService]
-func (b *GoLazyApp) AddService(srv lazyapp.Service) {
-	b.LazyApp.AddService(srv)
+func (b *GoLazyApp) AddService(srv lazyservice.Service) {
+	b.LazyService.AddService(srv)
 }
 
 // Draw draws the http routes of the server
@@ -108,14 +116,14 @@ func (b *GoLazyApp) Views(fs fs.FS) {
 // Run will start the application
 // See [golazy.dev/lazyapp.Run]
 func (b *GoLazyApp) Run() error {
-	return b.LazyApp.Run()
+	return b.LazyService.Run()
 }
 
 // Start will start the application and return a channel with the error
 func (b *GoLazyApp) Start() <-chan (error) {
 	errCh := make(chan (error))
 	go func() {
-		errCh <- b.LazyApp.Run()
+		errCh <- b.LazyService.Run()
 	}()
 	runtime.Gosched()
 	return errCh

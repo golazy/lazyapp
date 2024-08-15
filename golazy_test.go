@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"golazy.dev/lazyapp"
 	"golazy.dev/lazyassets"
+	"golazy.dev/lazycontext"
+	"golazy.dev/lazyservice"
 	"golazy.dev/lazyview"
 )
 
@@ -44,19 +45,19 @@ func TestAppBuilder(t *testing.T) {
 func TestAppHasContexts(t *testing.T) {
 	app := New("test", "1.0.0")
 
-	if value := lazyapp.AppGet[*lazyassets.Storage](app.LazyApp); value == nil {
+	if value := lazycontext.Get[*lazyassets.Storage](app.LazyService); value == nil {
 		t.Fatal("storage is nil")
 	}
 
-	if value := lazyapp.AppGet[*lazyassets.Server](app.LazyApp); value == nil {
+	if value := lazycontext.Get[*lazyassets.Server](app.LazyService); value == nil {
 		t.Fatal("lazyassets.Server is nil")
 	}
 
-	if value := lazyapp.AppGet[*lazyapp.LazyApp](app.LazyApp); value == nil {
+	if value := lazycontext.Get[*lazyservice.Manager](app.LazyService); value == nil {
 		t.Fatal("*lazyapp.LazyApp is nil")
 	}
 
-	if value := lazyapp.AppGet[*lazyview.Views](app.LazyApp); value == nil {
+	if value := lazycontext.Get[*lazyview.Views](app.LazyService); value == nil {
 		t.Fatal("lazyview.Views is nil")
 	}
 
